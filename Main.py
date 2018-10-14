@@ -1,11 +1,11 @@
 #!/usr/local/bin/python
 
 """
-Let this branch be the optimization of number of hidden layers
+Let this branch be the optimization of number of hidden nodes for each layer
 # Number of training samples = 5250
 # Number of test samples = 2107
 
-3 layers seems to be better with 240 epochs
+Using early stopping for the optimization
 Checkout Optimizations google sheet for more details
 """
 
@@ -14,7 +14,6 @@ import tensorflow as tf
 from tensorflow import keras
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 input_size = 1000
 test_fp = "test_1000.csv"
@@ -45,54 +44,41 @@ test_data, test_labels = get_data(test_fp)
 
 
 def get_history_of(model):
+    callback = keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=3)
     return model.fit(train_data,
-                      train_labels,
-                      epochs=EPOCHS,
-                      batch_size=BATCH_SIZE,
-                      validation_data=(test_data, test_labels),
-                      verbose=2)
+                     train_labels,
+                     epochs=EPOCHS,
+                     batch_size=BATCH_SIZE,
+                     validation_data=(test_data, test_labels),
+                     verbose=0,
+                     callbacks=[callback])
 
-
-def plot_history(histories_to_be_plotted, key='binary_crossentropy'):
-    plt.figure(figsize=(16, 10))
-
-    for name, history in histories_to_be_plotted:
-        val = plt.plot(history.epoch, history.history['val_' + key],
-                       '--', label=name.title() + ' Val')
-        plt.plot(history.epoch, history.history[key], color=val[0].get_color(),
-                 label=name.title() + ' Train')
-
-    plt.xlabel('Epochs')
-    plt.ylabel(key.replace('_', ' ').title())
-    plt.legend()
-
-    plt.xlim([0, max(history.epoch)])
 
 optimizer = tf.train.RMSPropOptimizer(learning_rate=0.001, momentum=0.9)
 
 histories = []
 accuracies = []
-for k in range(1, 6):
-    my_model = keras.Sequential()
-    for i in range(k):
-        hidden_layer = 256
-        layer = keras.layers.Dense(hidden_layer, activation=tf.nn.relu)
+hidden_nodes = [i*50 for i in range(1, 21)]
 
-        my_model.add(layer)
-        my_model.add(keras.layers.Dropout(0.5))
+for h1 in hidden_nodes:
+    for h2 in hidden_nodes:
+        for h3 in hidden_nodes:
+            my_model = keras.Sequential()
 
-    my_model.add(keras.layers.Dense(1, activation=tf.nn.sigmoid))
+            for nodes in (h1, h2, h3):
+                layer = keras.layers.Dense(nodes, activation=tf.nn.relu)
 
-    my_model.compile(optimizer=optimizer,
-                     loss='binary_crossentropy',
-                     metrics=['accuracy', 'binary_crossentropy'])
-    model_hist = get_history_of(my_model)
-    histories.append(('{} layers'.format(k), model_hist))
-    metrics = my_model.evaluate(test_data, test_labels, batch_size=BATCH_SIZE)
-    accuracies.append('Evaluation acc for {} layers: {}'.format(k, metrics[1]))
+                my_model.add(layer)
+                my_model.add(keras.layers.Dropout(0.5))
 
+            my_model.add(keras.layers.Dense(1, activation=tf.nn.sigmoid))
 
-plot_history(histories)
-for acc in accuracies:
-    print(acc)
-print('done')
+            my_model.compile(optimizer=optimizer,
+                             loss='binary_crossentropy',
+                             metrics=['accuracy', 'binary_crossentropy'])
+            model_hist = get_history_of(my_model)
+            model_acc = 'Acc for {}, {}, {}: {} - Max is {}'.format(h1, h2, h3,
+                                                                    model_hist.history['val_acc'][-1],
+                                                                    max(model_hist.history['val_acc']))
+            print(model_acc)
+
