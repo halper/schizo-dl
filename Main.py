@@ -1,13 +1,11 @@
 #!/usr/local/bin/python
 
 """
-Let this branch be the optimization of number of epochs
+Let this branch be the optimization of number of hidden layers
 # Number of training samples = 5250
 # Number of test samples = 2107
 
-history graphs show that around 250 epochs the model starts overfitting
-so I am setting num of epochs to 250
-In addition to that it shows that l2 regularization behaves funny
+3 layers seems to be better with 240 epochs
 Checkout Optimizations google sheet for more details
 """
 
@@ -22,7 +20,7 @@ input_size = 1000
 test_fp = "test_1000.csv"
 train_fp = "train_1000.csv"
 BATCH_SIZE = 5250  # this should perfectly divide number of training samples
-EPOCHS = 250
+EPOCHS = 240
 
 
 def get_data(fp):
@@ -46,28 +44,6 @@ train_data, train_labels = get_data(train_fp)
 test_data, test_labels = get_data(test_fp)
 
 
-def get_model(l2=False, dropout=False):
-    optimizer = tf.train.RMSPropOptimizer(learning_rate=0.001, momentum=0.9)
-    hidden_nodes = [245, 225]
-
-    baseline_model = keras.Sequential()
-    for hidden_layer in hidden_nodes:
-        model = keras.layers.Dense(hidden_layer, activation=tf.nn.relu)
-        if l2:
-            model = keras.layers.Dense(hidden_layer, activation=tf.nn.relu,
-                                       kernel_regularizer=keras.regularizers.l2(0.001))
-        baseline_model.add(model)
-        if dropout:
-            baseline_model.add(keras.layers.Dropout(0.5))
-
-    baseline_model.add(keras.layers.Dense(1, activation=tf.nn.sigmoid))
-
-    baseline_model.compile(optimizer=optimizer,
-                           loss='binary_crossentropy',
-                           metrics=['accuracy', 'binary_crossentropy'])
-    return baseline_model
-
-
 def get_history_of(model):
     return model.fit(train_data,
                       train_labels,
@@ -77,17 +53,10 @@ def get_history_of(model):
                       verbose=2)
 
 
-baseline_history = get_history_of(get_model())
-
-l2_history = get_history_of(get_model(l2=True))
-dropout_history = get_history_of(get_model(dropout=True))
-all_history = get_history_of(get_model(l2=True, dropout=True))
-
-
-def plot_history(histories, key='binary_crossentropy'):
+def plot_history(histories_to_be_plotted, key='binary_crossentropy'):
     plt.figure(figsize=(16, 10))
 
-    for name, history in histories:
+    for name, history in histories_to_be_plotted:
         val = plt.plot(history.epoch, history.history['val_' + key],
                        '--', label=name.title() + ' Val')
         plt.plot(history.epoch, history.history[key], color=val[0].get_color(),
@@ -99,9 +68,31 @@ def plot_history(histories, key='binary_crossentropy'):
 
     plt.xlim([0, max(history.epoch)])
 
+optimizer = tf.train.RMSPropOptimizer(learning_rate=0.001, momentum=0.9)
 
-plot_history([('baseline', baseline_history),
-              ('l2', l2_history),
-              ('dropout', dropout_history),
-              ('all', all_history)])
+histories = []
+accuracies = []
+for k in range(1, 6):
+    my_model = keras.Sequential()
+    for i in range(k):
+        hidden_layer = 256
+        layer = keras.layers.Dense(hidden_layer, activation=tf.nn.relu)
+
+        my_model.add(layer)
+        my_model.add(keras.layers.Dropout(0.5))
+
+    my_model.add(keras.layers.Dense(1, activation=tf.nn.sigmoid))
+
+    my_model.compile(optimizer=optimizer,
+                     loss='binary_crossentropy',
+                     metrics=['accuracy', 'binary_crossentropy'])
+    model_hist = get_history_of(my_model)
+    histories.append(('{} layers'.format(k), model_hist))
+    metrics = my_model.evaluate(test_data, test_labels, batch_size=BATCH_SIZE)
+    accuracies.append('Evaluation acc for {} layers: {}'.format(k, metrics[1]))
+
+
+plot_history(histories)
+for acc in accuracies:
+    print(acc)
 print('done')
