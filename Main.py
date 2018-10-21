@@ -65,11 +65,13 @@ for h1 in hidden_nodes:
         for h3 in hidden_nodes:
             my_model = keras.Sequential()
 
-            for nodes in (h1, h2, h3):
-                layer = keras.layers.Dense(nodes, activation=tf.nn.relu)
+            for nodes in (256, 256, 256):
+                layer = keras.layers.Dense(nodes, activation=tf.nn.relu,
+                                           kernel_regularizer=keras.regularizers.l2(0.01),
+                                           activity_regularizer=keras.regularizers.l1(0.01))
 
                 my_model.add(layer)
-                my_model.add(keras.layers.Dropout(0.5))
+                #my_model.add(keras.layers.Dropout(0.5))
 
             my_model.add(keras.layers.Dense(1, activation=tf.nn.sigmoid))
 
