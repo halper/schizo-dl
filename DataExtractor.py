@@ -1,76 +1,41 @@
 from random import shuffle
 import sys
-import subprocess
-import time
 import math
+from Data.SNP import SNP
+from Data.Sample import Sample
 
 
-class Sample:
-    CONTROL = '1'
-    CASE = '2'
+# Following two variables are prone to change
+TOP_N_AHP_SNP = 100
+TOP_N_SNP = 1500
+SUFFIX = 'pval1.5k_ahp100_enc_'
 
-    def __init__(self, phenotype):
-        self.phenotype = str(phenotype)
-        self.genotype_data = ''
-
-    def is_control(self):
-        return self.phenotype == self.CONTROL
-
-    def is_case(self):
-        return self.phenotype == self.CASE
-
-    def extend_genotype_data(self, genotype):
-        self.genotype_data += ',{:n}'.format(genotype)
-
-    def print_me_for_ANN(self):
-        phenotype = '0' if self.is_control() else '1' if self.is_case() else ''
-        return '{}{}'.format(phenotype, self.genotype_data)
-
-
-class SNP:
-    def __init__(self):
-        self.bim_pos = 0
-        self.affy_name = ''
-        self.rsid = ''
-
-    def set_affy_name(self, affy_name):
-        self.affy_name = affy_name
-
-    def get_affy_name(self):
-        return self.affy_name
-
-    def set_rsid(self, rsid):
-        self.rsid = rsid
-
-    def set_bim_pos(self, bim_pos):
-        self.bim_pos = int(bim_pos)
-
-    def get_bim_pos(self):
-        return self.bim_pos
-
-
+# Required to skip number of bytes while reading from plink binary file
+# First two required to identify whether it is a plink file and 3rd one defines some kind of mode
+# For more information go to: http://zzz.bwh.harvard.edu/plink/binary.shtml
 SKIP_BYTES = 3
+
+MASTER_THESIS_PATH = '/Users/alper/Dropbox/Google Drive/AydınSon Lab/Master Tezi/'
+AHP_path = MASTER_THESIS_PATH + 'Analiz/AHP/Output_SchGRU13/'
+AHP_file = AHP_path + 'ahpscores.txt'
+
+SNP_LIST = []
 path = "/Users/alper/Documents/tez/analysis/" # "/Volumes/Untitled/Tez Data/data/"
 file_name = 'merge_of_4'
 binary_file = path + file_name + '.bed'
 fam_file = path + file_name + '.fam'
 map_file = path + file_name + '.bim'
-p_file = path + file_name + '_p.assoc.adjusted'
-
-MASTER_THESIS_PATH = '/Users/alper/Dropbox/Google Drive/AydınSon Lab/Master Tezi/'
-
-TOP_N_SNP = 500
-SNP_LIST = []
+p_file = path + file_name + '_p.qassoc.adjusted'
 
 
 def get_rsid_map():
-    conversion_file = '/Volumes/Untitled/GenomeWideSNP_6.na35.annot.csv'
+    conversion_file = path + 'conversion_map'
     my_map = {}
     with open(conversion_file) as cf:
         for line in cf:
             if '#' in line or 'Probe Set ID' in line:
                 continue
-            splitted_line = line.replace('"', '').split(',')
+            splitted_line = line.replace('"', '').split()
             rsid = splitted_line[1]
             affy_name = splitted_line[0]
             my_map[rsid] = affy_name
@@ -87,12 +52,6 @@ def get_rsid_map():
                 affy_name = splitted_line[2]
                 my_map[rsid] = affy_name
     return my_map
-
-rsid_MAP = get_rsid_map()
-AHP_path = MASTER_THESIS_PATH + 'Analiz/AHP/Output_SchGRU13/'
-AHP_file = AHP_path + 'ahpscores.txt'
-
-TOP_N_AHP_SNP = 500
 
 
 def get_snp_map():
@@ -145,7 +104,10 @@ def get_top_ahp_snps():
 
 
 if TOP_N_AHP_SNP > 0:
+    rsid_MAP = get_rsid_map()
     SNP_LIST.extend(get_top_ahp_snps())
+
+SNP_LIST = list(set(SNP_LIST))
 
 with open(fam_file) as f:
     SAMPLE_LIST = [Sample(line.split()[-1]) for line in f]
@@ -156,17 +118,14 @@ if NUM_OF_SAMPLES == 0:
     sys.exit(1)
 
 
-def read_binary(binary_file):
+def read_binary():
     '''
     1 byte is 8 bits which hold 4 genotypes for 4 samples for a single SNP
-    :param binary_file:
+    Read binary file for given list of SNPs and finds genotype of the samples
+    :param:
     :return:
     '''
     with open(binary_file, "rb") as bf:
-        '''
-        bf.seek(0, 2)  # Seek the end
-        num_bytes = bf.tell()  # Get the file size
-        '''
         for snp in SNP_LIST:
             snp_block_size = int(math.ceil(NUM_OF_SAMPLES / 4))
             pos_to_seek = SKIP_BYTES + (snp_block_size * snp.get_bim_pos())
@@ -181,33 +140,32 @@ def read_binary(binary_file):
                 for k in range(0, 8, 2):
                     sample = SAMPLE_LIST[sample_no]
                     sample_no += 1
-                    genotype = int(reversed_str[k:k+2], 2)
-                    sample.extend_genotype_data(genotype)
+                    sample.extend_genotype_data(reversed_str[k:k+2])
                     if sample_no == NUM_OF_SAMPLES:
                         break
 
 
-read_binary(binary_file)
+read_binary()
 case_list = [sample for sample in SAMPLE_LIST if sample.is_case()]
 control_list = [sample for sample in SAMPLE_LIST if sample.is_control()]
-shuffle(case_list)
-shuffle(control_list)
-train_size = int(math.floor(max(len(case_list), len(control_list)) * .7))
+train_size = int(math.floor(max(len(case_list), len(control_list)) * .9))
 
-with open('train_{:d}.csv'.format(TOP_N_AHP_SNP+TOP_N_SNP), 'w') as fw:
-    for i in range(train_size):
-        if len(case_list) > 0:
-            sample = case_list.pop()
-            fw.write(sample.print_me_for_ANN() + '\n')
-        if len(control_list) > 0:
-            sample = control_list.pop()
+
+def write_to_file(fw):
+    for phenotype_list in (case_list, control_list):
+        shuffle(phenotype_list)
+        if len(phenotype_list) > 0:
+            sample = phenotype_list.pop()
             fw.write(sample.print_me_for_ANN() + '\n')
 
-with open('test_{:d}.csv'.format(TOP_N_AHP_SNP+TOP_N_SNP), 'w') as fw:
-    while len(case_list) > 0 or len(control_list) > 0:
-        if len(case_list) > 0:
-            sample = case_list.pop()
-            fw.write(sample.print_me_for_ANN() + '\n')
-        if len(control_list) > 0:
-            sample = control_list.pop()
-            fw.write(sample.print_me_for_ANN() + '\n')
+
+def write_model_files(file_type):
+    with open('{}{}_{:d}.csv'.format(SUFFIX, file_type, TOP_N_AHP_SNP+TOP_N_SNP), 'w') as fw:
+        if file_type == 'train':
+            for i in range(train_size):
+                write_to_file(fw)
+        elif file_type == 'test':
+            while len(case_list) > 0 or len(control_list) > 0:
+                write_to_file(fw)
+
+[write_model_files(file_type) for file_type in ('train', 'test')]
