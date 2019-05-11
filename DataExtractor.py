@@ -3,12 +3,15 @@ import sys
 import math
 from Data.SNP import SNP
 from Data.Sample import Sample
+from utils import utils
+
+c_parser = utils.c_parser
 
 
 # Following two variables are prone to change
-TOP_N_AHP_SNP = 100
-TOP_N_SNP = 1500
-SUFFIX = 'pval1.5k_ahp100_enc_'
+TOP_N_AHP_SNP = c_parser.getint('DATA_EXT', 'TOP_AHP')
+TOP_N_SNP = c_parser.getint('DATA_EXT', 'TOP_PVAL')
+PREFIX = c_parser.get('COMMON', 'prefix')
 
 # Required to skip number of bytes while reading from plink binary file
 # First two required to identify whether it is a plink file and 3rd one defines some kind of mode
@@ -160,7 +163,7 @@ def write_to_file(fw):
 
 
 def write_model_files(file_type):
-    with open('{}{}_{:d}.csv'.format(SUFFIX, file_type, TOP_N_AHP_SNP+TOP_N_SNP), 'w') as fw:
+    with open('csvs/{}{}_{:d}.csv'.format(PREFIX, file_type, TOP_N_AHP_SNP+TOP_N_SNP), 'w') as fw:
         if file_type == 'train':
             for i in range(train_size):
                 write_to_file(fw)

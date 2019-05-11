@@ -1,0 +1,30 @@
+[COMMON]
+prefix=pval1.5k_ahp100_enc_
+[CNN]
+
+suffix=1600
+TEST_FP={}test_{}.csv
+TRAIN_FP={}train_{}.csv
+LOAD_WEIGHTS=True
+
+# this should perfectly divide number of training samples
+BATCH_SIZE=646
+EPOCHS=10000
+HIDDEN_NODES=100,100,100,100,100,100
+
+#5e-6
+L2_WP=5e-6
+
+#5e-4
+L2_BP=5e-4
+
+#5e-3
+LEARNING_RATE=5e-3
+
+#'best/model-{}-0.7{}.hdf5'.format("02", 2)
+BEST_WEIGHTS=my-model.hdf5
+BEST_MODEL=best/model-0.71.hdf5
+LOAD_MODEL=False
+
+OPTIMIZER=Adadelta # Adadelta
+ONE_HOT_ENCODING=True

@@ -2,8 +2,6 @@
 
 """
 Let this branch be the optimization of all parameters
-# Number of training samples = 5250
-# Number of test samples = 2107
 
 Using early stopping for the optimization
 Checkout Optimizations google sheet for more details
@@ -11,111 +9,35 @@ Adadelta
 """
 
 from tensorflow import keras
-import itertools
-from matplotlib import pyplot
+from utils import utils
+import sys
 
-import numpy as np
+c_parser = utils.c_parser
+prefix = c_parser.get('COMMON', 'prefix')
+suffix = c_parser.get('CNN', 'suffix')
+TEST_FP = c_parser.get('CNN', 'TEST_FP').format(prefix, suffix)
 
-prefix = 'pval1.5k_ahp100_enc_'
-suffix = 1600
-TEST_FP = "{}test_{}.csv".format(prefix, suffix)
-TRAIN_FP = "{}train_{}.csv".format(prefix, suffix)
-LOAD_WEIGHTS = True
+TRAIN_FP = c_parser.get('CNN', 'TRAIN_FP').format(prefix, suffix)
+LOAD_WEIGHTS = c_parser.getboolean('CNN', 'LOAD_WEIGHTS')
 
-BATCH_SIZE = 646  # this should perfectly divide number of training samples
-EPOCHS = 10000
-HIDDEN_NODES = (100, ) * 6
+BATCH_SIZE = c_parser.getint('CNN', 'BATCH_SIZE')
+EPOCHS = c_parser.getint('CNN', 'EPOCHS')
+HIDDEN_NODES = [nodes for nodes in c_parser.get('CNN', 'HIDDEN_NODES').split(',')]
 
-L2_WP = 5e-6#5e-6
-L2_BP = 5e-4#5e-4
+L2_WP = c_parser.getfloat('CNN', 'L2_WP')
+L2_BP = c_parser.getfloat('CNN', 'L2_BP')
 
-LEARNING_RATE = 5e-3#5e-3
+LEARNING_RATE = c_parser.getfloat('CNN', 'LEARNING_RATE')
 
-BEST_WEIGHTS = 'best/model-{}-0.7{}.hdf5'.format("02", 2)
-BEST_WEIGHTS = 'my-model.hdf5'
-BEST_MODEL = 'best/model-0.71.hdf5'
-LOAD_MODEL = False
+BEST_WEIGHTS = c_parser.get('CNN', 'BEST_WEIGHTS')
+BEST_MODEL = c_parser.get('CNN', 'BEST_MODEL')
+LOAD_MODEL = c_parser.getboolean('CNN', 'LOAD_MODEL')
 
-OPTIMIZER = keras.optimizers.Adadelta() # Adadelta
-ONE_HOT_ENCODING = True
+OPTIMIZER = getattr(keras.optimizers, c_parser.get('CNN', 'OPTIMIZER'))()
 
 
-def plot_history():
-    # plot training history
-    pyplot.plot(model_hist.history['loss'], label='train_loss')
-    pyplot.plot(model_hist.history['val_loss'], label='test_loss')
-    #pyplot.plot(model_hist.history['acc'], label='train_acc')
-    #pyplot.plot(model_hist.history['val_acc'], label='test_acc')
-    pyplot.legend()
-    pyplot.show()
-
-
-def calc_precision(tp, fp):
-    return tp / (tp + fp)
-
-
-def calc_recall(tp, fn):
-    return tp / (tp + fn)
-
-
-def calc_f1_score(precision, recall):
-    return 2 * (precision * recall) / (precision + recall)
-
-
-def make_predictions():
-    CASE = 1
-    CONTROL = 0
-    predictions = my_model.predict_classes(test_data)
-    control_num = 0
-    case_num = 0
-    true_control_num = 0
-    true_case_num = 0
-    # round predictions
-    rounded = [round(x[0]) for x in predictions]
-    for i in range(len(rounded)):
-        true_lab = test_labels[i]
-        prediction = rounded[i]
-        if true_lab == CONTROL:
-            control_num += 1
-            if prediction == true_lab:
-                true_control_num += 1
-        elif true_lab == CASE:
-            case_num += 1
-            if prediction == true_lab:
-                true_case_num += 1
-    precision = calc_precision(true_case_num, control_num - true_control_num)
-    recall = calc_recall(true_case_num, case_num - true_case_num)
-    f1_score = calc_f1_score(precision, recall)
-    acc = (true_case_num + true_control_num) / (case_num + control_num)
-    print('\n')
-    print('TP (Correctly labeled Scz - cases)\tTN (Correctly labeled controls)\tAcc\tF1 Score')
-    print('{}\t{}\t{:.3f}\t{:.3f}'.format(true_case_num, true_control_num, acc*100, f1_score*100))
-    print('Total number of cases: {} '.format(case_num))
-    print('Total number of controls: {}'.format(control_num))
-
-def get_data(fp):
-    file_data = []
-    file_labels = []
-    with open(fp) as f:
-        for line in f:
-            splitted_line = line.strip('\n').split(',')
-            sample_data = splitted_line[1:]
-            sample_label = int(splitted_line[0])
-            file_data.append(sample_data)
-            file_labels.append(sample_label)
-    print('Done reading file {}'.format(fp))
-    if ONE_HOT_ENCODING:
-        return np.array(file_data), np.array(file_labels)
-    else:
-        file_data = keras.utils.to_categorical(file_data)
-        flattened_file_data = []
-        for data in file_data:
-            flattened_file_data.append(list(itertools.chain.from_iterable(data)))
-        return np.array(flattened_file_data), np.array(file_labels)
-
-
-train_data, train_labels = get_data(TRAIN_FP)
-test_data, test_labels = get_data(TEST_FP)
+train_data, train_labels = utils.get_data(TRAIN_FP)
+test_data, test_labels = utils.get_data(TEST_FP)
 INPUT_SIZE = len(train_data[0])
 
 
@@ -125,10 +47,6 @@ def load_model(weights=BEST_WEIGHTS):
 
     loss, acc, binary_cross = new_model.evaluate(test_data, test_labels)
     print("Restored model with test data, accuracy: {:5.2f}% ".format(100*acc))
-
-if LOAD_MODEL:
-    load_model()
-    print()
 
 
 def get_history_of(model):
@@ -159,9 +77,12 @@ my_model = keras.Sequential()
 if LOAD_MODEL:
     my_model = keras.models.load_model(BEST_MODEL)
     print("Loaded model: {}".format(BEST_MODEL))
+    utils.make_predictions(my_model, test_data, test_labels)
+    sys.exit(0)
 else:
     for layer_no, nodes in enumerate(HIDDEN_NODES):
         # Required for connecting inputs to the network
+        nodes = int(nodes)
         layer = keras.layers.Dense(nodes)
         if layer_no == 0:
             layer = keras.layers.Dense(nodes, input_dim=INPUT_SIZE)
@@ -196,6 +117,6 @@ except Exception:
 finally:
     load_model('my-model.hdf5')
 
-    make_predictions()
+    utils.make_predictions(my_model, test_data, test_labels)
 if model_hist:
-    plot_history()
+    utils.plot_history(model_hist)
