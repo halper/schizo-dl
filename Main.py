@@ -55,10 +55,10 @@ def get_history_of(model):
     monitor = "val_loss"
     checkpointer = keras.callbacks.ModelCheckpoint(filepath, monitor=monitor, verbose=1,
                                                    save_best_only=True, mode='min', period=1)
-    early_stopping = keras.callbacks.EarlyStopping(monitor=monitor, min_delta=0, patience=75,
+    early_stopping = keras.callbacks.EarlyStopping(monitor=monitor, min_delta=0, patience=40,
                                                    mode='min')
-    reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor=monitor, factor=0.1,
-                                                  patience=8, min_lr=1e-7)
+    reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor=monitor, factor=0.2, mode='min',
+                                                  patience=5, min_lr=1e-8, cooldown=1)
 
     if LOAD_WEIGHTS:
         model.load_weights(BEST_WEIGHTS)
@@ -118,5 +118,15 @@ finally:
     load_model('my-model.hdf5')
 
     utils.make_predictions(my_model, test_data, test_labels)
-if model_hist:
-    utils.plot_history(model_hist)
+    if model_hist:
+        utils.plot_history(model_hist)
+        history_file = 'results/history/{}{}'.format(prefix, suffix)
+        history = model_hist.history
+        with open(history_file, 'w') as fw:
+            fw.write('Epoch\tLoss\tValidation Loss\tAccuracy\tValidation Acc\n')
+            for i in range(len(history['loss'])):
+                loss = history['loss'][i]
+                val_loss = history['val_loss'][i]
+                acc = history['acc'][i]
+                val_acc = history['val_acc'][i]
+                fw.write('{:d}\t{:.3f}\t{:.3f}\t{:.3f}\t{:.3f}\n'.format(i+1, loss, val_loss, acc, val_acc))

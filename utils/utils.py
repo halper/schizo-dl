@@ -11,6 +11,8 @@ thisfolder = os.path.dirname(os.path.abspath(__file__))
 initfile = os.path.join(thisfolder, '../config/my-config')
 c_parser.read(initfile)
 ONE_HOT_ENCODING = c_parser.getboolean('CNN', 'ONE_HOT_ENCODING')
+PATH = "/Users/alper/Documents/tez/analysis/" # "/Volumes/Untitled/Tez Data/data/"
+MASTER_THESIS_PATH = '/Users/alper/Dropbox/Google Drive/AydınSon Lab/Master Tezi/'
 
 
 def get_data(fp):
@@ -19,13 +21,17 @@ def get_data(fp):
     with open(fp) as f:
         for line in f:
             splitted_line = line.strip('\n').split(',')
+            # this is 1: because the first column indicates label
             sample_data = splitted_line[1:]
             sample_label = int(splitted_line[0])
             file_data.append(sample_data)
             file_labels.append(sample_label)
     print('Done reading file {}'.format(fp))
+    # if the file is already encoded
+    # Or if you don't want to encode categorical numeric data
     if ONE_HOT_ENCODING:
         return np.array(file_data), np.array(file_labels)
+    # else apply one hot encoding to categorical data
     else:
         file_data = keras.utils.to_categorical(file_data)
         flattened_file_data = []
@@ -86,3 +92,29 @@ def make_predictions(model, test_data, test_labels):
     print('{}\t{}\t{:.3f}\t{:.3f}'.format(true_case_num, true_control_num, acc*100, f1_score*100))
     print('Total number of cases: {} '.format(case_num))
     print('Total number of controls: {}'.format(control_num))
+
+
+def get_rsid_map():
+    conversion_file = PATH + 'old_analysis/conversion_map'
+    my_map = {}
+    with open(conversion_file) as cf:
+        for line in cf:
+            if '#' in line or 'Probe Set ID' in line:
+                continue
+            splitted_line = line.replace('"', '').split()
+            rsid = splitted_line[1]
+            affy_name = splitted_line[0]
+            my_map[rsid] = affy_name
+
+    #add missing rsid conversions
+    conversion_file = MASTER_THESIS_PATH + 'SNPmaster1-2-1.txt'
+    with open(conversion_file) as cf:
+        for i, line in enumerate(cf):
+            if i == 0:
+                continue
+            splitted_line = line.split()
+            rsid = splitted_line[1]
+            if rsid not in my_map:
+                affy_name = splitted_line[2]
+                my_map[rsid] = affy_name
+    return my_map

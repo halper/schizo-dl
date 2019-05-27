@@ -18,43 +18,17 @@ PREFIX = c_parser.get('COMMON', 'prefix')
 # For more information go to: http://zzz.bwh.harvard.edu/plink/binary.shtml
 SKIP_BYTES = 3
 
-MASTER_THESIS_PATH = '/Users/alper/Dropbox/Google Drive/AydınSon Lab/Master Tezi/'
+MASTER_THESIS_PATH = utils.MASTER_THESIS_PATH
 AHP_path = MASTER_THESIS_PATH + 'Analiz/AHP/Output_SchGRU13/'
 AHP_file = AHP_path + 'ahpscores.txt'
 
 SNP_LIST = []
-path = "/Users/alper/Documents/tez/analysis/" # "/Volumes/Untitled/Tez Data/data/"
+PATH = utils.PATH
 file_name = 'merge_of_4'
-binary_file = path + file_name + '.bed'
-fam_file = path + file_name + '.fam'
-map_file = path + file_name + '.bim'
-p_file = path + file_name + '_p.qassoc.adjusted'
-
-
-def get_rsid_map():
-    conversion_file = path + 'conversion_map'
-    my_map = {}
-    with open(conversion_file) as cf:
-        for line in cf:
-            if '#' in line or 'Probe Set ID' in line:
-                continue
-            splitted_line = line.replace('"', '').split()
-            rsid = splitted_line[1]
-            affy_name = splitted_line[0]
-            my_map[rsid] = affy_name
-
-    #add missing rsid conversions
-    conversion_file = MASTER_THESIS_PATH + 'SNPmaster1-2-1.txt'
-    with open(conversion_file) as cf:
-        for i, line in enumerate(cf):
-            if i == 0:
-                continue
-            splitted_line = line.split()
-            rsid = splitted_line[1]
-            if rsid not in my_map:
-                affy_name = splitted_line[2]
-                my_map[rsid] = affy_name
-    return my_map
+binary_file = PATH + file_name + '.bed'
+fam_file = PATH + file_name + '.fam'
+map_file = PATH + file_name + '.bim'
+p_file = PATH + file_name + '_p.qassoc.adjusted'
 
 
 def get_snp_map():
@@ -107,7 +81,7 @@ def get_top_ahp_snps():
 
 
 if TOP_N_AHP_SNP > 0:
-    rsid_MAP = get_rsid_map()
+    rsid_MAP = utils.get_rsid_map()
     SNP_LIST.extend(get_top_ahp_snps())
 
 SNP_LIST = list(set(SNP_LIST))
